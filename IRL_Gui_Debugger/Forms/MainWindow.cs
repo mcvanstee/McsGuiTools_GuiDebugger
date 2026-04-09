@@ -12,7 +12,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.IO.Ports;
-using System.Reflection;
 
 namespace IRL_Gui_Debugger.Forms
 {
@@ -49,6 +48,7 @@ namespace IRL_Gui_Debugger.Forms
 
         private FileTransferWindow m_fileTransferWindow = new(0);
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public static bool DisplayConfigured { get; private set; } = false;
 
         public static MainWindow Instance
@@ -83,7 +83,7 @@ namespace IRL_Gui_Debugger.Forms
             MenuStrip.BackColor = IRLColor;
 
             typeof(Panel).InvokeMember("DoubleBuffered",
-                        BindingFlags.SetProperty | BindingFlags.Instance | BindingFlags.NonPublic,
+                        System.Reflection.BindingFlags.SetProperty | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
                         null, DisplayPanel, new object[] { true });
 
             m_keyMessageFilter.NavigationKeyPressed += NavigationKeyPressed;

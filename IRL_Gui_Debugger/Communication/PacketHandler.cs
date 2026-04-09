@@ -4,6 +4,7 @@ using Gui_Debug_Tool.DisplaySimulator;
 using IRL_Gui_Debugger.Communication.Commands;
 using IRL_Gui_Debugger.Communication.GuiDebugProtocol;
 using IRL_Gui_Debugger.DisplayInstructions;
+using IRL_Gui_Debugger.DisplaySimulator;
 using IRL_Gui_Debugger.Forms;
 using IRL_Gui_Debugger.Logging;
 using System.Collections.Concurrent;
@@ -44,7 +45,7 @@ namespace IRL_Gui_Debugger.Communication
 
             if (packetType == PacketType.ScreenUpdate)
             {
-                HandleScreenUpdatePacketReceived(packet, displayGraphics);
+                HandleScreenUpdatePacketReceived(packet, displayGraphics);//, Protocol.DisplayInstructionLength);
             }
             else if (packetType == PacketType.LogMessage)
             {
@@ -103,40 +104,75 @@ namespace IRL_Gui_Debugger.Communication
 
         private static void HandleScreenUpdatePacketReceived(CommunicationPacket packet, DisplayGraphics displayGraphics)
         {
-            int dataToRead = packet.Data[Protocol.PayloadLengthIndex];
-            Queue<DisplayInstruction> instructionsQueue = new();
-
-            for (int i = Protocol.StartPayloadIndex; i < dataToRead; i += Protocol.InstructionLength)
+            try
             {
-                byte[] instructionBytes = new byte[Protocol.InstructionLength];
-                Array.Copy(packet.Data, i, instructionBytes, 0, Protocol.InstructionLength);
+                int dataToRead = packet.Data[Protocol.PayloadLengthIndex];
+                Queue<DisplayInstruction> instructionsQueue = new();
 
-                if ((GraphicsInstructionType)packet.Data[i] == GraphicsInstructionType.FillInstruction)
+                int index = Protocol.StartPayloadIndex;
+                bool useBitmapColors = (packet.Data[index++]) == 1;
+                int propertiesLength = packet.Data[index++];
+                int instructionLength = packet.Data[index++];
+                dataToRead -= 3;
+
+                for (int i = index; i < dataToRead; i += instructionLength)
                 {
-                    DisplayInstruction instruction = DisplayInstruction.GetRectangleInstruction(instructionBytes);
-                    if (instruction.GetType() != typeof(EmptyInstruction))
+                    byte[] instructionBytes = new byte[instructionLength];
+                    Array.Copy(packet.Data, i, instructionBytes, 0, instructionLength);
+
+                    if ((GraphicsInstructionType)packet.Data[i] == GraphicsInstructionType.FillInstruction)
                     {
-                        instructionsQueue.Enqueue(instruction);
+                        DisplayInstruction instruction = DisplayInstruction.GetRectangleInstruction(instructionBytes);
+                        if (instruction.GetType() != typeof(EmptyInstruction))
+                        {
+                            instructionsQueue.Enqueue(instruction);
+                        }
+                    }
+                    else if ((GraphicsInstructionType)packet.Data[i] == GraphicsInstructionType.ImageInstruction)
+                    {
+                        int dataLocationIdIndex = useBitmapColors ? 13 : 5;
+                        byte dataLocationId = instructionBytes[dataLocationIdIndex];
+
+                        DataLocation dataLocation = displayGraphics.GetDataLocation(dataLocationId);
+
+                        if (dataLocation == null)
+                        {
+                            Logger.AddMessageToCommunicationLog($"ERROR - Data location {dataLocationId} not found for image instruction");
+                        }
+                        else
+                        {
+                            if (dataLocation.Type == DataType.RLE_Alpha)
+                            {
+                                DisplayInstruction instruction = 
+                                    OptimizedImageInstruction.GetInstruction(instructionBytes, useBitmapColors, propertiesLength);
+                                instructionsQueue.Enqueue(instruction);
+                            }
+                            else
+                            {
+                                DisplayInstruction instruction = 
+                                    ImageInstruction.GetInstruction(instructionBytes, useBitmapColors, propertiesLength);
+                                instructionsQueue.Enqueue(instruction);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine("Grapics Instruction error");
                     }
                 }
-                else if ((GraphicsInstructionType)packet.Data[i] == GraphicsInstructionType.ImageInstruction)
+
+                bool screenUpdate = (instructionsQueue.Count > 0);
+
+                displayGraphics.ProcessDisplayInstructions(instructionsQueue);
+
+                if (screenUpdate)
                 {
-                    DisplayInstruction instruction = ImageInstruction.GetInstruction(instructionBytes);                   
-                    instructionsQueue.Enqueue(instruction);
-                }
-                else
-                {
-                    Debug.WriteLine("Grapics Instruction error");
+                    displayGraphics.QueueBitmapToCache();
                 }
             }
-
-            bool screenUpdate = (instructionsQueue.Count > 0);
-
-            displayGraphics.ProcessDisplayInstructions(instructionsQueue);
-
-            if (screenUpdate)
+            catch (Exception ex)
             {
-                displayGraphics.QueueBitmapToCache();
+                Debug.WriteLine($"HandleScreenUpdatePacketReceived exception {ex.Message}");
             }
         }
 

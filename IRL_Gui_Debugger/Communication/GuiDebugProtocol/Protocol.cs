@@ -33,8 +33,6 @@
         public const int HeaderLength = 5;
         public const int CrcLength = 4;
 
-        public const int InstructionLength = 20;
-
         public const int DataPacketLength = 512;
         public const int DataPacketPayloadLength = DataPacketLength - 4;
     }

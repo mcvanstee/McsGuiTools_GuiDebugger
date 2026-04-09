@@ -1,6 +1,5 @@
 ﻿using IRL_Gui_Debugger.Communication.GuiDebugProtocol;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.IO.Ports;
 
 namespace Gui_Debug_Tool.Communication
@@ -77,8 +76,6 @@ namespace Gui_Debug_Tool.Communication
                 { 
                     if (m_serialPort.BytesToRead > 0)
                     {
-                        //Debug.WriteLine($"Bytes to read: {m_serialPort.BytesToRead}");
-
                         int byteReadResult = m_serialPort.ReadByte();
 
                         if (byteReadResult >= 0)

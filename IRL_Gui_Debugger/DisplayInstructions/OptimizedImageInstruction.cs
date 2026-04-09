@@ -1,9 +1,17 @@
-﻿using IRL_Gui_Debugger.DisplayInstructions;
+﻿using Gui_Debug_Tool.DisplayInstructions;
 
-namespace Gui_Debug_Tool.DisplayInstructions
+namespace IRL_Gui_Debugger.DisplayInstructions
 {
-    public class ImageInstruction : DisplayInstruction
+    public enum ImageType : byte
     {
+        Bitmap = 0,
+        Font
+    }
+
+    public class OptimizedImageInstruction : DisplayInstruction
+    {
+        public Color ForeColor { get; set; }
+        public Color BackColor { get; set; }
         public byte DataLocationId { get; set; }
         public ImageType Type { get; set; } = ImageType.Bitmap;
         public uint BmpKey { get; set; }
@@ -11,22 +19,26 @@ namespace Gui_Debug_Tool.DisplayInstructions
         public byte FontId { get; set; }
         public byte[] Properties { get; set; } = [];
 
-        public ImageInstruction(Point point, Size size) : base(point, size)
+        public OptimizedImageInstruction(Point point, Size size) : base(point, size)
         {
         }
 
-        public static ImageInstruction GetInstruction(byte[] instructionBytes, bool useBitmapColor, int propertiesLength)
+        public static OptimizedImageInstruction GetInstruction(
+            byte[] instructionBytes, bool useBitmapColor, int propertiesLength)
         {
             Point point = GetPoint(instructionBytes);
             Size size = GetSize(instructionBytes);
 
-            ImageInstruction instruction = new(point, size);
+            OptimizedImageInstruction instruction = new(point, size);
 
             int index = 5;
 
             if (useBitmapColor)
             {
-                index += 8;
+                instruction.ForeColor = ConvertColor(BitConverter.ToUInt32(instructionBytes, index));
+                index += 4;
+                instruction.BackColor = ConvertColor(BitConverter.ToUInt32(instructionBytes, index));
+                index += 4;
             }
 
             instruction.DataLocationId = instructionBytes[index++];

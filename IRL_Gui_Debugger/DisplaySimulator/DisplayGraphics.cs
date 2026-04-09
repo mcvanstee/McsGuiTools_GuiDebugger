@@ -1,9 +1,9 @@
 ﻿using Gui_Debug_Tool.DisplayInstructions;
+using IRL_Gui_Debugger.DisplayInstructions;
+using IRL_Gui_Debugger.DisplaySimulator;
 using IRL_Gui_Debugger.Logging;
-using KGySoft;
 using KGySoft.Drawing;
 using System.Collections.Concurrent;
-using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 
@@ -11,10 +11,10 @@ namespace Gui_Debug_Tool.DisplaySimulator
 {
     public class DisplayGraphics
     {
-        public static ConcurrentQueue<Image> GraphicsCache = new ConcurrentQueue<Image>();
+        public static ConcurrentQueue<Image> GraphicsCache = new();
 
-        private Bitmap? m_displayBitmap = null;    
-        private byte[] m_pixelFileData = Array.Empty<byte>();
+        private Bitmap? m_displayBitmap = null;  
+        private GuiImageFile m_guiImage = new();
 
         public DisplayGraphics()
         {
@@ -22,7 +22,7 @@ namespace Gui_Debug_Tool.DisplaySimulator
 
         public void CreateDisplayBitmap(int width, int height)
         {
-            m_displayBitmap = new Bitmap(width, height, PixelFormat.Format16bppRgb565);
+            m_displayBitmap = new Bitmap(width, height, PixelFormat.Format24bppRgb);
             Clear();
         }
 
@@ -54,10 +54,11 @@ namespace Gui_Debug_Tool.DisplaySimulator
 
             try
             {
-                BinaryReader binaryReader = new BinaryReader(File.Open(filePath, FileMode.Open));
-                m_pixelFileData = binaryReader.ReadBytes((int)binaryReader.BaseStream.Length);
-                binaryReader.Close();
+                m_guiImage = new();
 
+                BinaryReader binaryReader = new(File.Open(filePath, FileMode.Open));
+                m_guiImage.ReadGuiImageFile(binaryReader);
+                binaryReader.Close();
             }
             catch 
             {
@@ -70,7 +71,7 @@ namespace Gui_Debug_Tool.DisplaySimulator
 
         public void ProcessDisplayInstructions(Queue<DisplayInstruction> instructionsQueue)
         {
-            if (m_pixelFileData.Length == 0 || m_displayBitmap == null)
+            if (m_guiImage.IsEmpty || m_displayBitmap == null)
             {
                 Logger.Error("Process Display Instruction");
 
@@ -86,6 +87,11 @@ namespace Gui_Debug_Tool.DisplaySimulator
                 DisplayInstruction instruction = instructionsQueue.Dequeue();
                 DrawInstruction(instruction, graphics);
             }
+        }
+
+        public DataLocation GetDataLocation(int dataLocationId)
+        {
+            return m_guiImage.GetDataLocation(dataLocationId);
         }
 
         private void DrawInstruction(DisplayInstruction displayInstuction, Graphics g)
@@ -122,7 +128,7 @@ namespace Gui_Debug_Tool.DisplaySimulator
                 }
                 else
                 {
-                    DrawRoundedRectangle(g, pen, rectangle, rbInstruction.Radius);
+                    GraphicsExtensions.DrawRoundedRectangle(g, pen, rectangle, rbInstruction.Radius);
                 }
             }
             else if (displayInstuction is RectangleFillBorderInstruction rfbInstruction)
@@ -152,7 +158,11 @@ namespace Gui_Debug_Tool.DisplaySimulator
             }
             else if (displayInstuction is ImageInstruction imageInstuction)
             {
-                DrawImageInBitmap(imageInstuction);
+                DrawImageInstructionRLE(imageInstuction);
+            }
+            else if (displayInstuction is OptimizedImageInstruction optimizedImageInstruction)
+            {
+                DrawImageInstructionRLE_A(optimizedImageInstruction);
             }
             else
             {
@@ -169,32 +179,33 @@ namespace Gui_Debug_Tool.DisplaySimulator
         {
             int width = size.Width;
             int height = size.Height;
-            byte[] pixelDataBytes = new byte[width * height * 2];
-            byte[] colorBytes = BitConverter.GetBytes(GetRGB565(color));
+            byte[] pixelDataBytes = new byte[width * height * GuiImageFile.BytesPerPixel];
 
-            for (int i = 0; i < pixelDataBytes.Length; i += 2)
+            for (int i = 0; i < pixelDataBytes.Length; i += 3)
             {
-                pixelDataBytes[i] = colorBytes[0];
-                pixelDataBytes[i + 1] = colorBytes[1];
+                pixelDataBytes[i] = color.B;
+                pixelDataBytes[i + 1] = color.G;
+                pixelDataBytes[i + 2] = color.R;
             }
 
             CopyPixelsToBitmap(pixelDataBytes, width, height, point.X, point.Y);
         }
 
-        private void DrawImageInBitmap(ImageInstruction instruction)
+        private void DrawImageInstructionRLE_A(OptimizedImageInstruction instruction)
         {
             try
             {
                 int width = instruction.Size.Width;
+                int height = instruction.Size.Height;
+                byte[] pixelDataBytes;
 
-                byte[] pixelDataBytes = new byte[instruction.DataSize];
-                Array.Copy(m_pixelFileData, instruction.DataOffset, pixelDataBytes, 0, instruction.DataSize);
-
-                for (int i = 0; i < instruction.DataSize; i += 2)
+                if (instruction.Type == ImageType.Bitmap)
                 {
-                    byte temp = pixelDataBytes[i];
-                    pixelDataBytes[i] = pixelDataBytes[i + 1];
-                    pixelDataBytes[i + 1] = temp;
+                    pixelDataBytes = m_guiImage.GetPixelDataImageRLE_A(width, height, instruction.BmpKey, instruction.Properties, instruction.ForeColor, instruction.BackColor);
+                }
+                else
+                {
+                    pixelDataBytes = m_guiImage.GetPixelDataFontRLE_A(width, height, instruction.Character, instruction.FontId, instruction.ForeColor, instruction.BackColor);
                 }
 
                 CopyPixelsToBitmap(pixelDataBytes, width, instruction.Size.Height, instruction.Point.X, instruction.Point.Y);
@@ -203,17 +214,31 @@ namespace Gui_Debug_Tool.DisplaySimulator
             {
                 Logger.Error($"Draw Image in Bitmap: {e.Message}");
             }
-
         }
 
-        static ushort GetRGB565(Color color)
+        private void DrawImageInstructionRLE(ImageInstruction instruction)
         {
-            return GetRGB565(color.R, color.G, color.B);
-        }
+            try
+            {
+                int width = instruction.Size.Width;
+                int height = instruction.Size.Height;
+                byte[] pixelDataBytes;
 
-        static ushort GetRGB565(int r, int g, int b)
-        {
-            return (ushort)(((r >> 3) << 11) + ((g >> 2) << 5) + (b >> 3));
+                if (instruction.Type == ImageType.Bitmap)
+                {
+                    pixelDataBytes = m_guiImage.GetPixelDataImageRLE(width, height, instruction.BmpKey, instruction.Properties);
+                }
+                else
+                {
+                    pixelDataBytes = m_guiImage.GetPixelDataFontRLE(width, height, instruction.Character, instruction.FontId);
+                }
+
+                CopyPixelsToBitmap(pixelDataBytes, width, instruction.Size.Height, instruction.Point.X, instruction.Point.Y);
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"Draw Compressed Image in Bitmap: {e.Message}");
+            }
         }
 
         private void CopyPixelsToBitmap(byte[] pixelDataBytes, int width, int height, int x, int y)
@@ -228,7 +253,7 @@ namespace Gui_Debug_Tool.DisplaySimulator
 
                 for (int i = 0; i < height; i++)
                 {
-                    Marshal.Copy(pixelDataBytes, i * width * 2, bmd.Scan0 + bmd.Stride * i, width * 2);
+                    Marshal.Copy(pixelDataBytes, i * width * 3, bmd.Scan0 + bmd.Stride * i, width * 3);
                 }
 
                 m_displayBitmap.UnlockBits(bmd);
@@ -243,51 +268,5 @@ namespace Gui_Debug_Tool.DisplaySimulator
                 Logger.Error($"Copy Pixels to Bitmap: {e.Message}");
             }
         }
-
-        public static void DrawRoundedRectangle(Graphics graphics, Pen pen, Rectangle bounds, int cornerRadius)
-        {
-            if (graphics == null)
-                throw new ArgumentNullException(nameof(graphics), PublicResources.ArgumentNull);
-            if (pen == null)
-                throw new ArgumentNullException(nameof(pen), PublicResources.ArgumentNull);
-
-            using (GraphicsPath path = CreateRoundedRectangle(bounds, pen, cornerRadius))
-            {
-                graphics.DrawPath(pen, path);
-            }
-        }
-
-        private static GraphicsPath CreateRoundedRectangle(Rectangle bounds, Pen pen, int radius)
-        {
-            var path = new GraphicsPath();
-            if (radius == 0)
-            {
-                path.AddRectangle(bounds);
-                return path;
-            }
-
-            int diameter = (radius * 2);
-            var size = new Size(diameter, diameter);
-            var arc = new Rectangle(bounds.Location, size);
-
-            // top left arc
-            path.AddArc(arc, 180, 90);
-
-            // top right arc
-            arc.X = bounds.Right - diameter;
-            path.AddArc(arc, 270, 90);
-
-            // bottom right arc
-            arc.Y = bounds.Bottom - diameter;
-            path.AddArc(arc, 0, 90);
-
-            // bottom left arc
-            arc.X = bounds.Left;
-            path.AddArc(arc, 90, 90);
-
-            path.CloseFigure();
-            return path;
-        }
-
     }
 }

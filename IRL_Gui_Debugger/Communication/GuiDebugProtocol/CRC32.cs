@@ -57,8 +57,7 @@
               0x2d02ef8d
            };
 
-        /* This is the standard Gary S. Brown's 32 bit CRC algorithm, but
-           accumulate the CRC into the result of a previous CRC. */
+
         public static uint GetCrc32Accumulate(uint crc32val, ref byte[] data, int length)
         {
             for (int i = 0; i < length; i++)

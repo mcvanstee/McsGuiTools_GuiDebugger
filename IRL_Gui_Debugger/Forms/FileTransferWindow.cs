@@ -1,8 +1,11 @@
-﻿namespace IRL_Gui_Debugger.Forms
+﻿using System.ComponentModel;
+
+namespace IRL_Gui_Debugger.Forms
 {
     public partial class FileTransferWindow : Form
     {
         private int m_totalFileBytes;
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool CancelTransfer { get; private set; } = false;
 
         public FileTransferWindow(int totalFileBytes)
@@ -45,6 +48,7 @@
         private void CancelButton_Click(object sender, EventArgs e)
         {
             CancelTransfer = true;
+            Close();
         }
     }
 }

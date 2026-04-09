@@ -13,6 +13,7 @@ namespace IRL_Gui_Debugger.CustomComponents
         }
 
         [Browsable(true)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public string ButtonName
         {
             get => m_buttonName;

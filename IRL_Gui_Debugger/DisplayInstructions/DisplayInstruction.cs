@@ -1,4 +1,5 @@
-﻿using IRL_Gui_Debugger.DisplayInstructions;
+﻿using IRL_Gui_Debugger.Communication.GuiDebugProtocol;
+using IRL_Gui_Debugger.DisplayInstructions;
 using IRL_Gui_Debugger.Logging;
 
 namespace Gui_Debug_Tool.DisplayInstructions
@@ -25,18 +26,37 @@ namespace Gui_Debug_Tool.DisplayInstructions
 
         protected static Point GetPoint(byte[] instructionBytes)
         {
-            ushort x = BitConverter.ToUInt16(instructionBytes, 12);
-            ushort y = BitConverter.ToUInt16(instructionBytes, 14);
+            try
+            {
+                int lastIndex = instructionBytes.Length - 1;
+                ushort x = BitConverter.ToUInt16(instructionBytes, lastIndex - 7);
+                ushort y = BitConverter.ToUInt16(instructionBytes, lastIndex - 5);
+                return new Point(x, y);
+            }
+            catch
+            {
+                Logger.Error("Can not get point from instruction bytes");
+                return new Point(0, 0);
 
-            return new Point(x, y);
+            }
         }
 
         protected static Size GetSize(byte[] instructionBytes)
         {
-            ushort width = BitConverter.ToUInt16(instructionBytes, 16);
-            ushort height = BitConverter.ToUInt16(instructionBytes, 18);
+            try
+            {
+                int lastIndex = instructionBytes.Length - 1;
 
-            return new Size(width, height); ;
+                ushort width = BitConverter.ToUInt16(instructionBytes, lastIndex - 3);
+                ushort height = BitConverter.ToUInt16(instructionBytes, lastIndex - 1);
+
+                return new Size(width, height);
+            }
+            catch
+            {
+                Logger.Error("Can not get size from instruction bytes");
+                return new Size(0, 0); 
+            }
         }
 
         public static DisplayInstruction GetRectangleInstruction(byte[] instructionBytes)

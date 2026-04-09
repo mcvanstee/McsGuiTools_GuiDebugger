@@ -5,6 +5,7 @@ namespace IRL_Image_Creator.CustomComponents.Panels
     public partial class PanelWithBorder : Panel
     {
         [Browsable(true)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public Color BorderColor { get; set; }
         
         public PanelWithBorder()

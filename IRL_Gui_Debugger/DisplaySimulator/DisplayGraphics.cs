@@ -71,9 +71,16 @@ namespace Gui_Debug_Tool.DisplaySimulator
 
         public void ProcessDisplayInstructions(Queue<DisplayInstruction> instructionsQueue)
         {
-            if (m_guiImage.IsEmpty || m_displayBitmap == null)
+            if (m_guiImage.IsEmpty)
             {
-                Logger.Error("Process Display Instruction");
+                Logger.Error("Process Display Instruction, GUI image not loaded");
+
+                return;
+            }
+
+            if (m_displayBitmap == null)
+            {
+                Logger.Error("Process Display Instruction, display not configured");
 
                 return;
             }

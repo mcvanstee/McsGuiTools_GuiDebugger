@@ -39,6 +39,7 @@ namespace IRL_Gui_Debugger.Communication
                     PacketHandler.CommandQueue.Enqueue(new ConfigCommand());
                     m_status = CommunicationStatus.WaitingForConfigResponse;
                     m_stopWatch.Restart();
+                    Debug.WriteLine("Sent config request");
                 }
                 else if (!MainWindow.DisplayConfigured && m_status == CommunicationStatus.WaitingForConfigResponse)
                 {
@@ -46,18 +47,18 @@ namespace IRL_Gui_Debugger.Communication
                     {
                         m_status = CommunicationStatus.Idle;
                         m_stopWatch.Stop();
+                        Debug.WriteLine("Config response timeout, retrying...");
                     }
                 }
                 else if (MainWindow.DisplayConfigured && m_status == CommunicationStatus.WaitingForConfigResponse)
                 {
                     m_status = CommunicationStatus.Idle;
                     m_stopWatch.Stop();
+                    Debug.WriteLine("Received config response, display configured.");
                 }
                 else
                 {
                 }
-                
-
             }
         }
 

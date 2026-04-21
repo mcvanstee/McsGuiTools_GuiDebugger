@@ -28,13 +28,13 @@
         public const int PacketLength = 64;
         public const int PacketTypeIndex = 3;
         public const int PayloadLengthIndex = 4;
-        public const int StartPayloadIndex = 5;
+        public const int StartPayloadIndex = 6;
 
-        public const int HeaderLength = 5;
+        public const int HeaderLength = 6;
         public const int CrcLength = 4;
 
-        public const int DataPacketLength = 512;
-        public const int DataPacketPayloadLength = DataPacketLength - 4;
+        public const int DataPacketLength = 512; // For File write/read
+        public const int DataPacketPayloadLength = DataPacketLength - 4; // For File write/read
     }
 
     public enum RequestType : byte

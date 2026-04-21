@@ -187,7 +187,12 @@ namespace Gui_Debug_Tool.Communication
             else if (m_bytesRead.Count == 4)
             {
                 m_bytesRead.Add(byteRead);
-                m_bytesToRead = byteRead + Protocol.CrcLength;
+            }
+            else if (m_bytesRead.Count == 5)
+            {
+                m_bytesRead.Add(byteRead);
+                int payloadLength = BitConverter.ToUInt16(m_bytesRead.ToArray(), Protocol.PayloadLengthIndex);
+                m_bytesToRead = payloadLength + Protocol.CrcLength;
             }
             else
             {
@@ -200,7 +205,7 @@ namespace Gui_Debug_Tool.Communication
 
         private static bool CheckCrc(ref byte[] packet)
         {
-            int length = packet[Protocol.PayloadLengthIndex] + Protocol.HeaderLength;
+            int length = BitConverter.ToUInt16(packet, Protocol.PayloadLengthIndex) + Protocol.HeaderLength;
             uint crcCalculated = CRC32.GetCrc32(ref packet, length);
             uint crcFromPacket = BitConverter.ToUInt32(packet, length);
 

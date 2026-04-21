@@ -45,7 +45,7 @@ namespace IRL_Gui_Debugger.Communication
 
             if (packetType == PacketType.ScreenUpdate)
             {
-                HandleScreenUpdatePacketReceived(packet, displayGraphics);//, Protocol.DisplayInstructionLength);
+                HandleScreenUpdatePacketReceived(packet, displayGraphics);
             }
             else if (packetType == PacketType.LogMessage)
             {
@@ -106,7 +106,7 @@ namespace IRL_Gui_Debugger.Communication
         {
             try
             {
-                int dataToRead = packet.Data[Protocol.PayloadLengthIndex];
+                int dataToRead = BitConverter.ToUInt16(packet.Data, Protocol.PayloadLengthIndex);
                 Queue<DisplayInstruction> instructionsQueue = new();
 
                 int index = Protocol.StartPayloadIndex;
@@ -198,7 +198,7 @@ namespace IRL_Gui_Debugger.Communication
 
         private static void LogMessageReceived(CommunicationPacket packet)
         {
-            int payloadLength = packet.Data[Protocol.PayloadLengthIndex];
+            int payloadLength = BitConverter.ToUInt16(packet.Data, Protocol.PayloadLengthIndex);
             byte[] messageBytes = new byte[payloadLength];
             Array.Copy(packet.Data, Protocol.StartPayloadIndex, messageBytes, 0, payloadLength);
 

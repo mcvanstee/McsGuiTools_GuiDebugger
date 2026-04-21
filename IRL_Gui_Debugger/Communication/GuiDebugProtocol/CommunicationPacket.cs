@@ -34,7 +34,7 @@
             data[1] = (byte)'R';
             data[2] = (byte)'L';
             data[3] = (byte)packetType;
-            data[4] = (byte)payload.Length;
+            Array.Copy(BitConverter.GetBytes((ushort)payload.Length), 0, data, Protocol.PayloadLengthIndex, sizeof(ushort));
 
             Array.Copy(payload, 0, data, Protocol.StartPayloadIndex, payload.Length);
             uint crc = CRC32.GetCrc32(ref data, packetDataLength);

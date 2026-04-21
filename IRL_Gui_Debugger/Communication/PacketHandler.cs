@@ -115,6 +115,9 @@ namespace IRL_Gui_Debugger.Communication
                 int instructionLength = packet.Data[index++];
                 dataToRead -= 3;
 
+                int displayInstuctionsReceived = 0;
+                int imageInstructionsReceived = 0;
+
                 for (int i = index; i < dataToRead; i += instructionLength)
                 {
                     byte[] instructionBytes = new byte[instructionLength];
@@ -126,6 +129,7 @@ namespace IRL_Gui_Debugger.Communication
                         if (instruction.GetType() != typeof(EmptyInstruction))
                         {
                             instructionsQueue.Enqueue(instruction);
+                            displayInstuctionsReceived++;
                         }
                     }
                     else if ((GraphicsInstructionType)packet.Data[i] == GraphicsInstructionType.ImageInstruction)
@@ -141,6 +145,8 @@ namespace IRL_Gui_Debugger.Communication
                         }
                         else
                         {
+                            imageInstructionsReceived++;
+
                             if (dataLocation.Type == DataType.RLE_Alpha)
                             {
                                 DisplayInstruction instruction = 
@@ -160,6 +166,8 @@ namespace IRL_Gui_Debugger.Communication
                         Debug.WriteLine("Grapics Instruction error");
                     }
                 }
+
+                Logger.AddMessageToCommunicationLog($"Screen update. {displayInstuctionsReceived + imageInstructionsReceived} Instructions, Display: {displayInstuctionsReceived}, Bitmap: {imageInstructionsReceived}");
 
                 bool screenUpdate = (instructionsQueue.Count > 0);
 
